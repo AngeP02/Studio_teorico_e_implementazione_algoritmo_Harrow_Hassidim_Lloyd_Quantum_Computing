@@ -1,94 +1,245 @@
-# Algoritmo Harrow Hassidim Lloyd — Soluzione Quantistica di Sistemi Lineari
+# HHL Quantum Algorithm — Quantum Linear Systems Solver
 
-Studio e implementazione dell'algoritmo HHL in Qiskit per la soluzione di sistemi lineari $Ax = b$.
+A theoretical study and Qiskit implementation of the Harrow–Hassidim–Lloyd (HHL) algorithm for solving linear systems of equations using quantum computing.
 
-## Contenuto
+The project explores the algorithm's mathematical foundations, circuit construction, and experimental behavior through local simulation and execution on real IBM Quantum hardware.
 
-- Studio teorico delle diverse fasi dell'algoritmo
-- Implementazione del circuito HHL per sistemi 2×2 e 4×4
-- Simulazione e confronto con la soluzione classica
-- Esecuzione su hardware reale IBM Quantum
+## Authors
 
-## Descrizione
+- Angelica Porco
+- Hanna Andrieieva
 
-L'algoritmo HHL risolve un sistema lineare $Ax = b$ producendo lo stato quantistico $|x\rangle \propto A^{-1}|b\rangle$, sfruttando la Quantum Phase Estimation (QPE) per codificare gli autovalori e una rotazione condizionale per realizzarne l'inversione. In condizioni ideali offre uno speedup esponenziale rispetto ai risolutori classici per matrici sparse e ben condizionate.
+## Academic Context
 
-Il progetto copre l'intera pipeline:
+Developed as a university project focused on Quantum Computing, combining theoretical analysis with practical implementation.
 
-- Analisi spettrale e normalizzazione degli autovalori
-- Costruzione dell'operatore unitario $U = e^{iAt}$ tramite esponenziazione matriciale
-- Circuito QPE con registro di controllo configurabile
-- Rotazione condizionale $R_Y$ per l'inversione degli autovalori
-- QPE inversa (uncompute) e post-selezione sul qubit ausiliario
-- Esecuzione su simulatore locale (Aer) e su hardware IBM reale
+The project explores the potential and limitations of quantum algorithms for linear algebra problems, with particular attention to the gap between ideal quantum simulation and execution on real quantum hardware.
 
-## Pipeline dell'algoritmo
+## Project Overview
 
-| Fase | Descrizione |
+The HHL algorithm is a quantum algorithm designed to solve linear systems of the form:
+
+$$
+A\mathbf{x}=\mathbf{b}
+$$
+
+where $A$ is a matrix, $\mathbf{x}$ is the unknown solution vector, and $\mathbf{b}$ is the input vector.
+
+Rather than directly producing the classical solution vector, HHL prepares a quantum state proportional to:
+
+$$
+|x\rangle \propto A^{-1}|b\rangle
+$$
+
+Under specific assumptions concerning matrix sparsity, condition number, state preparation, and output extraction, the algorithm can offer a theoretical advantage over classical approaches for certain problems.
+
+This project focuses on understanding and implementing the main stages of HHL, evaluating its performance on small systems, and comparing ideal simulation results with execution on real quantum hardware.
+
+## Main Objectives
+
+- Study the theoretical foundations of the HHL algorithm.
+- Understand the role of Quantum Phase Estimation in encoding eigenvalues.
+- Implement the complete quantum circuit using Qiskit.
+- Test linear systems of dimensions $2\times2$ and $4\times4$.
+- Compare quantum results with classical solutions.
+- Evaluate circuit behavior on both local simulators and real IBM Quantum hardware.
+- Investigate the impact of circuit complexity and hardware noise on solution fidelity.
+
+## Algorithm Workflow
+
+The implementation follows the main stages of the HHL algorithm.
+
+### 1. State Preparation
+
+The input vector $\mathbf{b}$ is normalized and encoded into the amplitudes of the system register, preparing the quantum state:
+
+$$
+|b\rangle=\sum_j \beta_j|u_j\rangle
+$$
+
+where $|u_j\rangle$ denotes an eigenvector of the matrix $A$, and $\beta_j$ represents the corresponding coefficient in the eigenbasis.
+
+The matrix is assumed to be Hermitian and admits the spectral decomposition:
+
+$$
+A=\sum_j \lambda_j|u_j\rangle\langle u_j|
+$$
+
+where $\lambda_j$ are its eigenvalues.
+
+### 2. Quantum Phase Estimation (QPE)
+
+Quantum Phase Estimation is used to encode the eigenvalues of the matrix into the phase register.
+
+The implementation constructs the unitary operator:
+
+$$
+U=e^{iAt}
+$$
+
+and applies controlled powers of this operator, followed by the Inverse Quantum Fourier Transform (IQFT).
+
+For an eigenvector $|u_j\rangle$, the unitary evolution is:
+
+$$
+U|u_j\rangle=e^{i\lambda_jt}|u_j\rangle
+$$
+
+The resulting register contains an approximation of the eigenvalue phases.
+
+### 3. Conditional Eigenvalue Inversion
+
+A controlled rotation is applied to an auxiliary qubit to encode the inverse eigenvalue information.
+
+The rotation angle is defined as:
+
+$$
+\theta_j=2\arcsin\left(\frac{C}{\tilde{\lambda}_j}\right)
+$$
+
+where $\tilde{\lambda}_j$ is the estimated eigenvalue and $C$ is a scaling constant chosen to ensure that the rotation is physically valid.
+
+The corresponding rotation operation is:
+
+$$
+R_Y(\theta_j)=
+\begin{pmatrix}
+\cos(\theta_j/2) & -\sin(\theta_j/2)\\
+\sin(\theta_j/2) & \cos(\theta_j/2)
+\end{pmatrix}
+$$
+
+This operation encodes the inverse eigenvalue information into the amplitude of the auxiliary qubit.
+
+### 4. Inverse QPE
+
+The inverse Quantum Phase Estimation circuit is applied to uncompute the phase register, disentangling it from the system register.
+
+This step removes the eigenvalue information from the control register while preserving the information encoded in the amplitudes of the system state.
+
+### 5. Post-selection
+
+Measurements are filtered according to the auxiliary qubit outcome.
+
+When the auxiliary qubit is measured in state $|1\rangle$, the system register contains a state proportional to the solution:
+
+$$
+|x\rangle\propto A^{-1}|b\rangle
+$$
+
+The normalization factor is determined by the success probability of the controlled rotation and post-selection procedure.
+
+## Implementation
+
+The algorithm is implemented in Python using Qiskit.
+
+The notebook supports different execution configurations through a set of global parameters.
+
+| Parameter | Description |
 |---|---|
-| Preparazione stato | Codifica il vettore $b$ normalizzato nel registro di sistema |
-| QPE | Estrae gli autovalori come fasi binarie tramite Hadamard + $C$-$U^{2^k}$ + IQFT |
-| Rotazione condizionale | Applica $R_Y(2\arcsin(C/\tilde{\lambda}_j))$ al qubit ausiliario |
-| QPE inversa | Esegue l'uncompute del registro di controllo per disaccoppiarlo dal sistema |
-| Post-selezione | Filtra i risultati con qubit ausiliario = 1; il registro di sistema contiene $|x\rangle$ |
+| `DIMENSIONE_SISTEMA` | Selects a $2\times2$ or $4\times4$ linear system |
+| `BACKEND_TIPO` | Selects local simulation or real IBM Quantum hardware |
+| `M_QUBIT_CONTROLLO` | Sets the number of control qubits used by QPE |
+| `NUM_SHOTS` | Defines the number of circuit executions |
 
-## Configurazione
+The default configuration uses three control qubits and $16\,384$ shots.
 
-All'inizio del notebook un blocco di parametri globali controlla tutte le modalità di esecuzione:
+The matrix exponential is computed using `scipy.linalg.expm`, allowing the construction of the unitary operator used in the QPE circuit.
 
-```python
-DIMENSIONE_SISTEMA = 2      # 2 → sistema 2×2 (1 qubit di sistema)
-                            # 4 → sistema 4×4 (2 qubit di sistema)
+## Experimental Results
 
-BACKEND_TIPO = "simulatore" # "simulatore" → AerSimulator locale
-                            # "hardware"   → dispositivo IBM reale
+Four configurations were evaluated:
 
-M_QUBIT_CONTROLLO = 3       # Precisione QPE: risoluzione = 1/2^m
-NUM_SHOTS = 16384
-```
-## Risultati sperimentali
+- $2\times2$ system on a local simulator.
+- $4\times4$ system on a local simulator.
+- $2\times2$ system on real IBM Quantum hardware.
+- $4\times4$ system on real IBM Quantum hardware.
 
-Sono state testate quattro configurazioni: sistemi 2×2 e 4×4, ciascuno su simulatore e su hardware IBM reale.
+### Simulation Results
 
-### Simulatore
+| System | Fidelity | Success Probability | Theoretical Bound $1/\kappa^2$ |
+|---|---:|---:|---:|
+| $2\times2$ | 0.957 | 0.349 | 0.250 |
+| $4\times4$ | 0.999 | 0.289 | 0.143 |
 
-| Sistema | Fedeltà $F$ | Prob. successo $P_1$ | Limite teorico $1/\kappa^2$ |
-|---|---|---|---|
-| 2×2 | 0.957 | 0.349 | 0.250 |
-| 4×4 | 0.999 | 0.289 | 0.143 |
+The $4\times4$ system achieves higher fidelity in simulation. This behavior is related to how its eigenvalue phases align with the phase discretization grid of QPE using three control qubits.
 
-Il sistema 4×4 raggiunge fedeltà superiore al 2×2 perché le sue fasi spettrali si adattano più favorevolmente alla griglia di quantizzazione della QPE a $m = 3$ bit.
+### Real IBM Quantum Hardware
 
-### Hardware IBM (reale)
+| System | Fidelity | Fidelity Difference vs. Simulator | Two-Qubit Gates |
+|---|---:|---:|---:|
+| $2\times2$ | 0.934 | $-0.023$ | 70 |
+| $4\times4$ | 0.706 | $-0.293$ | 242 |
 
-| Sistema | Fedeltà $F$ | $\Delta F$ rispetto al simulatore | Gate a 2 qubit |
-|---|---|---|---|
-| 2×2 | 0.934 | −0.023 | 70 |
-| 4×4 | 0.706 | −0.293 | 242 |
+The experimental results highlight the impact of hardware noise on circuit execution.
 
-Il circuito 2×2 (profondità 8, 70 gate a 2 qubit) è eseguibile in modo affidabile su hardware NISQ corrente. Il circuito 4×4 (profondità 13, 242 gate a 2 qubit) accumula rumore sufficiente a rendere la distribuzione post-selezione quasi uniforme; la probabilità di successo $P_1$ rimane comunque sopra il limite teorico in entrambi i casi.
+The $2\times2$ implementation maintains relatively high fidelity, with a limited reduction compared with ideal simulation.
 
-### Precisione QPE al variare di $m$
+The $4\times4$ implementation experiences a more significant degradation. Its larger circuit, requiring 242 two-qubit gates, is more exposed to accumulated noise and errors in the physical device.
 
-| $m$ | Risoluzione $1/2^m$ | Verificato |
-|---|---|---|
-| 2 | 0.250 | ✗ |
-| 3 | 0.125 | ✓ |
-| 4 | 0.0625 | ✓ |
-| ≥5 | dimezza per ogni bit | ✓ |
+These results illustrate the challenges of executing increasingly complex quantum algorithms on current Noisy Intermediate-Scale Quantum (NISQ) hardware.
 
-L'errore si dimezza ad ogni qubit aggiuntivo, confermando la convergenza esponenziale teorica. $m = 2$ è insufficiente per entrambi i sistemi testati.
+## QPE Precision Analysis
 
+The number of control qubits determines the phase estimation resolution:
 
-## Limitazioni note
+$$
+\Delta\phi=\frac{1}{2^m}
+$$
 
-**Preparazione dello stato.** Caricare un vettore classico $b$ nelle ampiezze quantistiche può richiedere $O(N)$ operazioni in assenza di una Quantum RAM (QRAM), annullando potenzialmente il vantaggio per input puramente classici.
+where $m$ is the number of control qubits.
 
-**Simulazione hamiltoniana.** L'implementazione utilizza l'esponenziazione matriciale esatta (`scipy.linalg.expm`), che produce gate unitari densi. Il gate count scala sfavorevolmente con $N$; per matrici sparse di grandi dimensioni sarebbe necessaria una decomposizione di Trotter–Suzuki.
+The implementation investigates different values of $m$.
 
-**Numero di condizionamento.** La complessità dell'algoritmo è $O(s^2 \kappa^2 \log N / \varepsilon)$. Il vantaggio rispetto ai solver classici è significativo soltanto per matrici sparse e ben condizionate ($\kappa \ll N$).
+| Control Qubits ($m$) | Phase Resolution ($\Delta\phi$) | Result |
+|---:|---:|---|
+| 2 | 0.250 | Insufficient |
+| 3 | 0.125 | Verified |
+| 4 | 0.0625 | Verified |
+| $\geq 5$ | Halved with each additional qubit | Verified |
 
-**Estrazione dell'output.** HHL produce uno stato quantistico, non un vettore classico. Ricostruire tutte le componenti richiede $O(N)$ misure ripetute; il caso d'uso pratico è la stima di valori attesi $\langle x | M | x \rangle$.
+Increasing the number of control qubits improves the theoretical phase resolution, reducing the discretization error of the estimation.
 
-## Autori
-Angelica Porco, Hanna Andrieieva
+The experiments indicate that two control qubits are insufficient for the tested systems, whereas three or more provide adequate resolution for the configurations considered.
+
+## Limitations and Practical Considerations
+
+Despite its theoretical potential, HHL has important practical limitations.
+
+### Quantum State Preparation
+
+Encoding a classical vector $\mathbf{b}$ into a quantum state can require $O(N)$ operations without specialized quantum memory, potentially reducing the overall advantage for classical input data.
+
+### Hamiltonian Simulation
+
+The implementation uses exact matrix exponentiation through `scipy.linalg.expm`, producing dense unitary operators.
+
+This approach is suitable for small systems but does not scale efficiently to large matrices. More scalable implementations would require techniques such as Trotter–Suzuki decomposition or other Hamiltonian simulation methods.
+
+### Condition Number
+
+The condition number of a matrix $A$ is defined as:
+
+$$
+\kappa(A)=\|A\|\cdot\|A^{-1}\|
+$$
+
+The complexity of HHL depends strongly on the sparsity $s$, the condition number $\kappa$, and the desired precision $\epsilon$.
+
+The algorithm is most promising for sparse, well-conditioned matrices. Its theoretical advantage is therefore dependent on the properties of the input problem.
+
+### Output Extraction
+
+HHL produces a quantum state rather than a classical solution vector.
+
+Recovering all components of the classical solution requires repeated measurements and can eliminate the theoretical advantage. The algorithm is more suitable for applications where the objective is to estimate specific properties of the solution state, such as expectation values.
+
+## Technologies
+
+- **Python**
+- **Qiskit**
+- **Qiskit Aer**
+- **IBM Quantum**
+- **NumPy**
+- **SciPy**
+- **Jupyter Notebook**
